@@ -1,143 +1,47 @@
 #include <SoftwareSerial.h>
-SoftwareSerial mySerial(10, 11);
-#include <LiquidCrystal.h>
-int level1 = A5;
-int level2 = A4;
-int level3 = A3;
-int level4 = A2;
-int level5 = A1;
-int motor = 6;
-int a;
-int b;
-int c;
-int d;
-int e;
-int r;
-int m = 0;
-int z = 50;
 
-LiquidCrystal lcd(2, 3, 4, 5, 6, 7);
+SoftwareSerial GSM(7, 8);  // RX, TX pins for GSM module
+const int waterSensorPin = A0; // Analog pin to connect the water level sensor
+
 void setup() {
+  // Initialize serial communication with Arduino IDE
   Serial.begin(9600);
-  mySerial.begin(9600);
-  pinMode(level1, INPUT);
-  pinMode(level2, INPUT);
-  pinMode(level3, INPUT);
-  pinMode(level4, INPUT);
-  pinMode(level5, INPUT);
-  pinMode(motor, OUTPUT);
-  lcd.begin(16, 2);
+
+  // Initialize serial communication with the GSM module
+  GSM.begin(9600);
+
+  // Configure the water sensor pin as an input
+  pinMode(waterSensorPin, INPUT);
+
+  // Give some time for the GSM module to initialize
+  delay(2000);
 }
 
 void loop() {
+  // Read the water level sensor value
+  int waterLevel = analogRead(waterSensorPin);
 
-  r = digitalRead(motor);
-  a = analogRead(level1);
-  b = analogRead(level2);
-  c = analogRead(level3);
-  d = analogRead(level4);
-  e = analogRead(level5);
+  // You may need to adjust the threshold value based on your sensor
+  int threshold = 500;
 
-  if (e > z && d > z && c > z && b > z && a > z) {
-    {
-      digitalWrite(motor, LOW);
-    }
-    lcd.clear();
-    lcd.setCursor(0, 0);
-    lcd.print("Tank 100% FULL");
-    SendMessage();
-    mySerial.println("ATDxxxxxxxxxx;");
-    delay(100);
-    mySerial.println("ATH");
-  } else {
-    if (e < z && d > z && c > z && b > z && a > z) {
-
-      lcd.clear();
-      lcd.setCursor(0, 0);
-      lcd.print("Tank is 80% FULL");
-      SendMessage1();
-    } else {
-      if (e < z && d < z && c > z && b > z && a > z) {
-
-        lcd.clear();
-        lcd.setCursor(0, 0);
-        lcd.print("Tank is 60% FULL");
-        SendMessage2();
-      } else {
-        if (e < z && d < z && c < z && b > z && a > z) {
-
-
-          lcd.clear();
-          lcd.setCursor(0, 0);
-          lcd.print("Tank is 40% FULL");
-          SendMessage3();
-        } else if (e < z && d < z && c < z && b < z && a > z) {
-
-          lcd.clear();
-          lcd.setCursor(0, 0);
-          lcd.print("Tank is 20% FULL");
-        } else {
-          if (e < z && d < z && c < z && b < z && a < z) {
-            {
-              digitalWrite(motor, HIGH);
-            }
-          }
-        }
-      }
-    }
+  // Check if the water level is above the threshold
+  if (waterLevel > threshold) {
+    // Water level is high, send an SMS
+    sendSMS("Water level is high! Current level: " + String(waterLevel));
   }
-  if (r == LOW) {
-    lcd.setCursor(0, 0);
-    lcd.print("Water Pump (OFF)");
-  } else {
-    lcd.setCursor(0, 0);
-    lcd.print("Water Pump (ON)");
-  }
-  {
-    delay(100);
-  }
+
+  // Delay between readings (adjust as needed)
+  delay(60000); // 1 minute delay
 }
-void SendMessage() {
-  Serial.println("Tank 100% FULL");
-  mySerial.println("AT+CMGF=1");
+
+void sendSMS(String message) {
+  // Send an SMS using AT commands
+  GSM.println("AT+CMGF=1"); // Set SMS text mode
   delay(1000);
-  mySerial.println("AT+CMGS=\"+91xxxxxxxxxx\"\r");
+  GSM.println("AT+CMGS=\"+1234567890\""); // Replace with the recipient's phone number
   delay(1000);
-  mySerial.println("Tank 100% FULL");
-  delay(100);
-  mySerial.println((char)26);
+  GSM.println(message);
   delay(1000);
-}
-void SendMessage1() {
-  Serial.println("Tank is 80% FULLt");
-  mySerial.println("AT+CMGF=1");
-  delay(1000);
-  mySerial.println("AT+CMGS=\"+91xxxxxxxxxx\"\r");
-  delay(1000);
-  mySerial.println("Tank is 80% FULL ");
-  delay(100);
-  mySerial.println((char)26);
-  delay(1000);
-}
-void SendMessage2() {
-  Serial.println("Tank is 60% FULL");
-  mySerial.println("AT+CMGF=1");
-  delay(1000);
-  mySerial.println("AT+CMGS=\"+91xxxxxxxxxx\"\r");
-  delay(1000);
-  mySerial.println("Tank is 60% FULL");
-  delay(100);
-  mySerial.println((char)26);
-  delay(1000);
-}
-void SendMessage3() {
-  Serial.println("Tank is 40% FULL");
-  mySerial.println("AT+CMGF=1");
-  delay(1000);
-  mySerial.println("AT+CMGS=\"+91xxxxxxxxxx\"\r");
-  delay(1000);
-  mySerial.println("Tank is 40% FULL");
-  delay(100);
-  mySerial.println((char)26);
+  GSM.println((char)26); // Send Ctrl+Z to indicate the end of the message
   delay(1000);
 }
