@@ -1,47 +1,90 @@
 #include <SoftwareSerial.h>
+SoftwareSerial GSM(9, 10); // RX, TX pins for GSM module (change pins as needed)
 
-SoftwareSerial GSM(7, 8);  // RX, TX pins for GSM module
-const int waterSensorPin = A0; // Analog pin to connect the water level sensor
+/* Change these values based on your calibration values */
+int lowerThreshold = 420;
+int upperThreshold = 520;
+
+// Sensor pins
+#define sensorPower 7
+#define sensorPin A0
+
+// Value for storing water level
+int val = 0;
+
+// Declare pins to which LEDs are connected
+int redLED = 2;
+int yellowLED = 3;
+int greenLED = 4;
 
 void setup() {
-  // Initialize serial communication with Arduino IDE
-  Serial.begin(9600);
+	Serial.begin(9600);
+   GSM.begin(9600);
+  
+	pinMode(sensorPower, OUTPUT);
+	digitalWrite(sensorPower, LOW);
+	
+	// Set LED pins as an OUTPUT
+	pinMode(redLED, OUTPUT);
+	pinMode(yellowLED, OUTPUT);
+	pinMode(greenLED, OUTPUT);
 
-  // Initialize serial communication with the GSM module
-  GSM.begin(9600);
-
-  // Configure the water sensor pin as an input
-  pinMode(waterSensorPin, INPUT);
-
-  // Give some time for the GSM module to initialize
-  delay(2000);
+	// Initially turn off all LEDs
+	digitalWrite(redLED, LOW);
+	digitalWrite(yellowLED, LOW);
+	digitalWrite(greenLED, LOW);
 }
+void sendSMS(String message) {
+    // Send an SMS using AT commands
+    GSM.println("AT+CMGF=1"); // Set SMS text mode
+    delay(1000);
+    GSM.println("AT+CMGS=\"+1234567890\""); // Replace with the recipient's phone number
+    delay(1000);
+    GSM.println(message);
+    delay(1000);
+    GSM.println((char)26); // Send Ctrl+Z to indicate the end of the message
+    delay(1000);
+}
+
 
 void loop() {
-  // Read the water level sensor value
-  int waterLevel = analogRead(waterSensorPin);
+    int level = readSensor();
 
-  // You may need to adjust the threshold value based on your sensor
-  int threshold = 500;
-
-  // Check if the water level is above the threshold
-  if (waterLevel > threshold) {
-    // Water level is high, send an SMS
-    sendSMS("Water level is high! Current level: " + String(waterLevel));
-  }
-
-  // Delay between readings (adjust as needed)
-  delay(60000); // 1 minute delay
+    if (level == 0) {
+        // Water is empty, send an SMS
+        sendSMS("Water Level: Empty");
+        digitalWrite(redLED, LOW);
+        digitalWrite(yellowLED, LOW);
+        digitalWrite(greenLED, LOW);
+    } else if (level > 0 && level <= lowerThreshold) {
+        // Water level is low, send an SMS
+        sendSMS("Water Level: Low");
+        Serial.println("Water Level: Low");
+        digitalWrite(redLED, HIGH);
+        digitalWrite(yellowLED, LOW);
+        digitalWrite(greenLED, LOW);
+    } else if (level > lowerThreshold && level <= upperThreshold) {
+        Serial.println("Water Level: Medium");
+        digitalWrite(redLED, LOW);
+        digitalWrite(yellowLED, HIGH);
+        digitalWrite(greenLED, LOW);
+    } else if (level > upperThreshold) {
+        // Water level is high, send an SMS
+        sendSMS("Water Level: High");
+        Serial.println("Water Level: High");
+        digitalWrite(redLED, LOW);
+        digitalWrite(yellowLED, LOW);
+        digitalWrite(greenLED, HIGH);
+    }
+    delay(1000);
 }
 
-void sendSMS(String message) {
-  // Send an SMS using AT commands
-  GSM.println("AT+CMGF=1"); // Set SMS text mode
-  delay(1000);
-  GSM.println("AT+CMGS=\"+1234567890\""); // Replace with the recipient's phone number
-  delay(1000);
-  GSM.println(message);
-  delay(1000);
-  GSM.println((char)26); // Send Ctrl+Z to indicate the end of the message
-  delay(1000);
+
+//This is a function used to get the reading
+int readSensor() {
+	digitalWrite(sensorPower, HIGH);
+	delay(10);
+	val = analogRead(sensorPin);
+	digitalWrite(sensorPower, LOW);
+	return val;
 }
